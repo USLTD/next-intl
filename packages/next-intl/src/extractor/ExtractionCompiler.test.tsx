@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 import ExtractionCompiler from './ExtractionCompiler.js';
+import JSONCodecStructured from './format/codecs/fixtures/JSONCodecStructured.js';
 
 const filesystem: {
   project: {
@@ -3310,6 +3311,70 @@ describe('custom format', () => {
       msgctxt "misc.Fp6Fab"
       msgid "Checking if you're logged in."
       msgstr ""
+      ",
+        ],
+      ]
+    `);
+  });
+
+  it('supports passing a codec factory function directly (module import)', async () => {
+    filesystem.project.messages = {
+      'en.json': JSON.stringify(
+        {
+          'ui.wESdnU': {message: 'Click me', description: 'Button label'}
+        },
+        null,
+        2
+      )
+    };
+    filesystem.project.src['Button.tsx'] = `
+    import {useExtracted} from 'next-intl';
+    function Button() {
+      const t = useExtracted('ui');
+      return (
+        <button>
+          {t({message: 'Click me', description: 'Button label'})}
+          {t('Submit')}
+        </button>
+      );
+    }
+    `;
+
+    using compiler = new ExtractionCompiler(
+      {
+        srcPath: './src',
+        sourceLocale: 'en',
+        messages: {
+          path: './messages',
+          format: {
+            codec: JSONCodecStructured,
+            extension: '.json'
+          },
+          locales: 'infer'
+        }
+      },
+      {
+        isDevelopment: true,
+        projectRoot: '/project'
+      }
+    );
+
+    await compiler.extractAll();
+    await waitForWriteFileCalls(1);
+
+    expect(vi.mocked(fs.writeFile).mock.calls).toMatchInlineSnapshot(`
+      [
+        [
+          "messages/en.json",
+          "{
+        "ui.wESdnU": {
+          "message": "Click me",
+          "description": "Button label"
+        },
+        "ui.wSZR47": {
+          "message": "Submit"
+        }
+      }
       ",
         ],
       ]
