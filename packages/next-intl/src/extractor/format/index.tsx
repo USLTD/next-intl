@@ -38,6 +38,10 @@ export async function resolveCodec(
     const factory = (await formats[format].codec()).default;
     return factory();
   } else {
+    if (typeof format.codec === 'function') {
+      return format.codec();
+    }
+
     const resolvedPath = path.isAbsolute(format.codec)
       ? format.codec
       : path.resolve(projectRoot, format.codec);
